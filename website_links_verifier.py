@@ -18,8 +18,8 @@ def get_final_url(url, url_original, driver):
         driver.get(url)
         return driver.current_url
     except Exception as e:
+        logging.error("Page URL: %s", url_original)
         logging.error("Exception retrieving final URL for %s: %s", url, str(e)[:MAX_ERROR_MSG])
-        logging.error("Page URL: %s\n", url_original)
         return None
 
 def check_links(base_url, driver, original_url=None):
@@ -37,7 +37,7 @@ def check_links(base_url, driver, original_url=None):
             link_url = link['href']
             link_text = link.text.strip()
             absolute_url = urljoin(base_url, link_url)
-            #print("Link Text checking:", link_text)
+            logging.info("Link Text checking: %s", link_text)
             final_url = get_final_url(absolute_url, original_url, driver)
             if final_url is not None:
                 final_status_code = requests.head(final_url, allow_redirects=False, timeout=TIMEOUT_SECONDS_REQUEST).status_code
@@ -45,11 +45,11 @@ def check_links(base_url, driver, original_url=None):
                 #if final_status_code == HTTPStatus.OK:
                 if final_status_code != HTTPStatus.OK or str(HTTPStatus.NOT_FOUND) in final_url:
                     #print(f"Link: {absolute_url} | Text: {link_text} | Final URL: {final_url} | Status Code: {final_status_code} ({status_description})")
-                    logging.info(
+                    logging.error("logging.info Page URL: %s", original_url)
+                    logging.error(
                         "logging.info Link: %s | Text: %s | Final URL: %s | Status Code: %s (%s)",
                         absolute_url, link_text, final_url, final_status_code, status_description
                     )
-                    logging.info("logging.info Page URL: %s\n", original_url)
 
                     # Recursively check links on the page that the current link navigates to
                     check_links(final_url, driver, original_url)
@@ -88,11 +88,21 @@ def set_options():
 def configure_logging():
     """configures logging"""
     #config = get_config()
+    log_to_console = True  # Set this based on your configuration
+
+    handlers = [
+        logging.StreamHandler() if log_to_console else None,  # Conditionally add StreamHandler
+        logging.FileHandler('logfile.log')  # Always add FileHandler
+    ]
+
+    handlers = [handler for handler in handlers if handler is not None]
+
     logging.basicConfig(
         #level=config.get("logging_level", logging.INFO),
         level=logging.INFO,
         format="%(asctime)s [%(levelname)s] %(message)s",
-        datefmt="%Y-%m-%d %H:%M:%S"
+        datefmt="%Y-%m-%d %H:%M:%S",
+        handlers=handlers
     )
 
 
