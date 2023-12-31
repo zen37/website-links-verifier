@@ -18,8 +18,8 @@ def get_final_url(url, url_original, driver):
         driver.get(url)
         return driver.current_url
     except Exception as e:
-        print(f"Exception retrieving final URL for {url}: {str(e)[0:MAX_ERROR_MSG]}")
-        print(f"page URL: {url_original}\n")
+        logging.error("Exception retrieving final URL for %s: %s", url, str(e)[:MAX_ERROR_MSG])
+        logging.error("Page URL: %s\n", url_original)
         return None
 
 def check_links(base_url, driver, original_url=None):
@@ -44,8 +44,13 @@ def check_links(base_url, driver, original_url=None):
                 status_description = HTTPStatus(final_status_code).phrase
                 #if final_status_code == HTTPStatus.OK:
                 if final_status_code != HTTPStatus.OK or str(HTTPStatus.NOT_FOUND) in final_url:
-                    print(f"Link: {absolute_url} | Text: {link_text} | Final URL: {final_url} | Status Code: {final_status_code} ({status_description})")
-                    print(f"Page URL: {original_url}\n")
+                    #print(f"Link: {absolute_url} | Text: {link_text} | Final URL: {final_url} | Status Code: {final_status_code} ({status_description})")
+                    logging.info(
+                        "logging.info Link: %s | Text: %s | Final URL: %s | Status Code: %s (%s)",
+                        absolute_url, link_text, final_url, final_status_code, status_description
+                    )
+                    logging.info("logging.info Page URL: %s\n", original_url)
+
                     # Recursively check links on the page that the current link navigates to
                     check_links(final_url, driver, original_url)
             else:
@@ -54,11 +59,12 @@ def check_links(base_url, driver, original_url=None):
                 #print(f"page URL: {original_url}\n")
 
     except MaxRetryError as mre:
-        print(f"Max retries exceeded for {base_url}: {mre}")
+        logging.error("Max retries exceeded for %s: %s", base_url, mre)
     except NameResolutionError as nre:
-        print(f"Name resolution error for {base_url}: {nre}")
+        logging.error("Name resolution error for %s: %s", base_url, nre)
     except Exception as e:
-        print(f"An unexpected error occurred: {str(e)[0:MAX_ERROR_MSG]}")
+        logging.error("An unexpected error occurred: %s", str(e)[:MAX_ERROR_MSG])
+
 
 def read_config(key):
     try:
@@ -66,23 +72,37 @@ def read_config(key):
             config_data = json.load(config_file)
             return config_data.get(key)
     except FileNotFoundError:
-        print("Config file not found.")
+        logging.error("Config file not found.")
         return None
     except json.JSONDecodeError:
-        print("Error decoding JSON in the config file.")
+        logging.error("Error decoding JSON in the config file.")
         return None
+
 
 def set_options():
     options = webdriver.ChromeOptions()
     options.add_argument("--headless")  # Run Chrome in headless mode (no GUI)
     return options
 
+
+def configure_logging():
+    """configures logging"""
+    #config = get_config()
+    logging.basicConfig(
+        #level=config.get("logging_level", logging.INFO),
+        level=logging.INFO,
+        format="%(asctime)s [%(levelname)s] %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S"
+    )
+
+
 def main():
-    #set_logging()
+    configure_logging()
+
     website_url = read_config('site')
 
     if website_url:
-        print(f"{website_url} ... checking links ...")
+        logging.info("%s ... checking links ...", website_url)
 
         options = set_options()
 
@@ -90,7 +110,7 @@ def main():
             driver.set_page_load_timeout(TIMEOUT_SECONDS_PAGE_LOAD)
             check_links(website_url, driver)
     else:
-        print("Exiting due to missing or invalid config.")
+        logging.error("Exiting due to missing or invalid config.")
 
     driver.quit()
 
