@@ -1,3 +1,5 @@
+import os
+import time
 import requests
 import json
 import logging
@@ -11,7 +13,11 @@ from selenium.webdriver.support import expected_conditions as EC
 from bs4 import BeautifulSoup
 from urllib3.exceptions import MaxRetryError, NameResolutionError
 
-from constants import ENCODING, MAX_ERROR_MSG, TIMEOUT_SECONDS_PAGE_LOAD, TIMEOUT_SECONDS_REQUEST
+from constants import (
+    ENCODING, MAX_ERROR_MSG,
+    TIMEOUT_SECONDS_PAGE_LOAD, TIMEOUT_SECONDS_REQUEST
+)
+
 
 def get_final_url(url, url_original, driver):
     try:
@@ -21,6 +27,7 @@ def get_final_url(url, url_original, driver):
         logging.error("Page URL: %s", url_original)
         logging.error("Exception retrieving final URL for %s: %s", url, str(e)[:MAX_ERROR_MSG])
         return None
+
 
 def check_links(base_url, driver, original_url=None):
     try:
@@ -85,15 +92,31 @@ def set_options():
     return options
 
 
+def get_logfile_name():
+    """configures logging"""
+    website_url = read_config('site')
+    logging_level = read_config('logging_level')
+    dir_logs = read_config('dir_logs')
+    date_format = read_config('date_format_filename')
+
+    logfile_name = f"{website_url.replace('https://', '').replace('http://', '').replace('/', '_')}_{logging_level.lower()}_log_{time.strftime(date_format)}.log"
+
+    # Combine DIR_LOGS with the logfile name
+    logfile_path = os.path.join(dir_logs, logfile_name)
+    # Create the logs directory if it doesn't exist
+    logs_dir = os.path.dirname(logfile_path)
+    os.makedirs(logs_dir, exist_ok=True)
+
+    return logfile_path
+
 def configure_logging():
     """configures logging"""
     logging_level = read_config('logging_level')
- 
     stream = read_config('log_to_console')
 
     handlers = [
         logging.StreamHandler() if stream else None,  # Conditionally add StreamHandler
-        logging.FileHandler('logfile.log')  # Always add FileHandler
+        logging.FileHandler(get_logfile_name())  # Always add FileHandler
     ]
 
     handlers = [handler for handler in handlers if handler is not None]
