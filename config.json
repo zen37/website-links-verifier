@@ -1,3 +1,5 @@
 {
-    "site": "https://lease.lu/en"
+    "site": "https://lease.lu",
+    "logging_level": "INFO",
+    "log_to_console": true
 }

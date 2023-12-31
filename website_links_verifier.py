@@ -87,19 +87,19 @@ def set_options():
 
 def configure_logging():
     """configures logging"""
-    #config = get_config()
-    log_to_console = True  # Set this based on your configuration
+    logging_level = read_config('logging_level')
+ 
+    stream = read_config('log_to_console')
 
     handlers = [
-        logging.StreamHandler() if log_to_console else None,  # Conditionally add StreamHandler
+        logging.StreamHandler() if stream else None,  # Conditionally add StreamHandler
         logging.FileHandler('logfile.log')  # Always add FileHandler
     ]
 
     handlers = [handler for handler in handlers if handler is not None]
 
     logging.basicConfig(
-        #level=config.get("logging_level", logging.INFO),
-        level=logging.INFO,
+        level=logging_level,
         format="%(asctime)s [%(levelname)s] %(message)s",
         datefmt="%Y-%m-%d %H:%M:%S",
         handlers=handlers
