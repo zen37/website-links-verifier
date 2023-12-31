@@ -1,5 +1,6 @@
 import requests
 import json
+import logging
 
 from http import HTTPStatus
 from urllib.parse import urljoin
@@ -36,7 +37,7 @@ def check_links(base_url, driver, original_url=None):
             link_url = link['href']
             link_text = link.text.strip()
             absolute_url = urljoin(base_url, link_url)
-            print("Link Text checking:", link_text)
+            #print("Link Text checking:", link_text)
             final_url = get_final_url(absolute_url, original_url, driver)
             if final_url is not None:
                 final_status_code = requests.head(final_url, allow_redirects=False, timeout=TIMEOUT_SECONDS_REQUEST).status_code
@@ -71,14 +72,19 @@ def read_config(key):
         print("Error decoding JSON in the config file.")
         return None
 
+def set_options():
+    options = webdriver.ChromeOptions()
+    options.add_argument("--headless")  # Run Chrome in headless mode (no GUI)
+    return options
+
 def main():
+    #set_logging()
     website_url = read_config('site')
 
     if website_url:
         print(f"{website_url} ... checking links ...")
 
-        options = webdriver.ChromeOptions()
-        options.add_argument("--headless")  # Run Chrome in headless mode (no GUI)
+        options = set_options()
 
         with webdriver.Chrome(options=options) as driver:
             driver.set_page_load_timeout(TIMEOUT_SECONDS_PAGE_LOAD)
