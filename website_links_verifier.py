@@ -2,50 +2,57 @@ import json
 from http import HTTPStatus
 from urllib.parse import urljoin
 import requests
+from selenium import webdriver
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
 from bs4 import BeautifulSoup
 from urllib3.exceptions import MaxRetryError, NameResolutionError
 
-from constants import ENCODING
+from constants import ENCODING, MAX_ERROR_MSG
 
-def get_final_url(url):
+def get_final_url(url, driver):
     try:
-        response = requests.head(url, allow_redirects=True)
-        return response.url
+        driver.get(url)
+        return driver.current_url
     except Exception as e:
-        print(f"Error retrieving final URL for {url}: {e}")
+        print(f"Error retrieving final URL for {url}: {str(e)[0:MAX_ERROR_MSG]}")
         return None
 
 def check_links(base_url):
     try:
-        with requests.Session() as session:
-            response = session.get(base_url)
+        options = webdriver.ChromeOptions()
+        options.add_argument("--headless")  # Run Chrome in headless mode (no GUI)
 
-            if response.status_code == 200:
-                soup = BeautifulSoup(response.text, 'html.parser')
-                links = soup.find_all('a', href=True)
+        with webdriver.Chrome(options=options) as driver:
+            driver.set_page_load_timeout(10)
 
-                for link in links:
-                    link_url = link['href']
-                    link_text = link.text.strip()  # Extract text associated with the link
-                    absolute_url = urljoin(base_url, link_url)
+            driver.get(base_url)
+            WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.TAG_NAME, 'body')))
 
-                    final_url = get_final_url(absolute_url)
-                    if final_url is not None:
-                        final_status_code = session.head(final_url).status_code
-                        status_description = HTTPStatus(final_status_code).phrase
+            soup = BeautifulSoup(driver.page_source, 'html.parser')
+            links = soup.find_all('a', href=True)
+
+            for link in links:
+                link_url = link['href']
+                link_text = link.text.strip()
+                absolute_url = urljoin(base_url, link_url)
+
+                final_url = get_final_url(absolute_url, driver)
+                if final_url is not None:
+                    final_status_code = requests.head(final_url, allow_redirects=False).status_code
+                    status_description = HTTPStatus(final_status_code).phrase
+                    if final_status_code != HTTPStatus.OK or str(HTTPStatus.NOT_FOUND) in final_url:
                         print(f"Link: {absolute_url} | Text: {link_text} | Final URL: {final_url} | Status Code: {final_status_code} ({status_description})")
-                    else:
-                        print(f"Error retrieving final URL for {absolute_url}")
-
-            else:
-                print(f"Failed to retrieve the page. Status Code: {response.status_code}")
+                else:
+                    print(f"Error retrieving final URL for {absolute_url}")
 
     except MaxRetryError as mre:
         print(f"Max retries exceeded for {base_url}: {mre}")
     except NameResolutionError as nre:
         print(f"Name resolution error for {base_url}: {nre}")
     except Exception as e:
-        print(f"An unexpected error occurred: {e}")
+        print(f"An unexpected error occurred: {str(e)[0:MAX_ERROR_MSG]}")
 
 def read_config(key):
     try:
