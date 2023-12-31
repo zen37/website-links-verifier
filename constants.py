@@ -1,3 +1,11 @@
+# for reading config.json file
 ENCODING = 'UTF-8'
 
-MAX_ERROR_MSG = 64 #max number of charcaters to show of an error message
+# max number of characters to show of an error message
+MAX_ERROR_MSG = 128
+
+# page load timeout in seconds
+TIMEOUT_SECONDS_PAGE_LOAD = 10
+
+# HTTP request timeout in seconds
+TIMEOUT_SECONDS_REQUEST = 5
