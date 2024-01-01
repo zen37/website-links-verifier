@@ -1,5 +1,9 @@
 {
-    "site": "https://infawork.com/",
+    "site": "",
+    "http_status_exclusion_list": [
+        200,
+        403
+    ],
     "log_to_console": true,
     "dir_logs": "logs",
     "date_format_filename": "%Y%m%d_%H%M%S",

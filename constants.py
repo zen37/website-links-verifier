@@ -14,4 +14,4 @@ TIMEOUT_SECONDS_REQUEST = 5
 DEFAULT_LOG_LEVEL = 'ERROR'
 
 # parameter to limit recursion
-MAX_DEPTH = 1
+MAX_DEPTH = 2

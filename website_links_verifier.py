@@ -64,6 +64,8 @@ def check_links(base_url, driver, original_url=None, depth=0, max_depth=MAX_DEPT
         soup = BeautifulSoup(driver.page_source, 'html.parser')
         links = soup.find_all('a', href=True)
 
+        exclusion_list = CONFIG.get("http_status_exclusion_list", [])
+
         for link in links:
             link_url = link['href']
             link_text = link.text.strip()
@@ -71,19 +73,21 @@ def check_links(base_url, driver, original_url=None, depth=0, max_depth=MAX_DEPT
             logging.info("Link Text checking: %s", link_text)
             final_url = get_final_url(absolute_url, original_url, driver)
             if final_url is not None:
-                final_status_code = requests.head(final_url, allow_redirects=False, timeout=TIMEOUT_SECONDS_REQUEST).status_code
-                status_description = HTTPStatus(final_status_code).phrase
-                #if final_status_code == HTTPStatus.OK:
-                if final_status_code != HTTPStatus.OK or str(HTTPStatus.NOT_FOUND) in final_url:
-                    #print(f"Link: {absolute_url} | Text: {link_text} | Final URL: {final_url} | Status Code: {final_status_code} ({status_description})")
-                    logging.error("Page URL: %s", original_url)
-                    logging.error(
-                        "Link: %s | Text: %s | Final URL: %s | Status Code: %s (%s)",
-                        absolute_url, link_text, final_url, final_status_code, status_description
-                    )
-                    if depth + 1 <= max_depth:
-                        # Recursively check links on the page that the current link navigates to
-                        check_links(final_url, driver, original_url, depth + 1, MAX_DEPTH)
+                try:
+                    final_status_code = requests.head(final_url, allow_redirects=False, timeout=TIMEOUT_SECONDS_REQUEST).status_code
+                    status_description = HTTPStatus(final_status_code).phrase
+                    if final_status_code not in exclusion_list or str(HTTPStatus.NOT_FOUND) in final_url:
+                        #print(f"Link: {absolute_url} | Text: {link_text} | Final URL: {final_url} | Status Code: {final_status_code} ({status_description})")
+                        logging.error("Page URL: %s", original_url)
+                        logging.error(
+                            "Link: %s | Text: %s | Final URL: %s | Status Code: %s (%s)",
+                            absolute_url, link_text, final_url, final_status_code, status_description
+                        )
+                        if depth + 1 <= max_depth:
+                            # Recursively check links on the page that the current link navigates to
+                            check_links(final_url, driver, original_url, depth + 1, MAX_DEPTH)
+                except requests.exceptions.SSLError as ssl_error:
+                    logging.error("SSL certificate verification error for %s: %s", final_url, ssl_error)
             else:
                 pass
                 #print(f"Error retrieving final URL for {absolute_url}")
