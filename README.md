@@ -7,7 +7,6 @@ A Python script to recursively check links on a web page and their final URLs us
 - [Overview](#overview)
 - [Features](#features)
 - [Installation](#installation)
-- [Usage](#usage)
 - [Configuration](#configuration)
 - [License](#license)
 
@@ -44,3 +43,6 @@ You can configure the script using the config.json file. Customize the configura
     "log_format": "%(asctime)s [%(levelname)s] %(message)s"
 }
 ```
+## License
+
+This project is licensed under the MIT License.
