@@ -15,7 +15,8 @@ from urllib3.exceptions import MaxRetryError, NameResolutionError
 
 from constants import (
     DEFAULT_LOG_LEVEL, ENCODING, MAX_ERROR_MSG, MAX_DEPTH,
-    TIMEOUT_SECONDS_PAGE_LOAD, TIMEOUT_SECONDS_REQUEST
+    TIMEOUT_SECONDS_PAGE_LOAD, TIMEOUT_SECONDS_REQUEST,
+    NON_STANDARD_HTTP_CODE_LOG, NON_STANDARD_HTTP_CODE_DESCR
 )
 
 # define global configuration dictionary
@@ -72,10 +73,17 @@ def check_links(base_url, driver, original_url=None, depth=0, max_depth=MAX_DEPT
             absolute_url = urljoin(base_url, link_url)
             logging.info("Link Text checking: %s", link_text)
             final_url = get_final_url(absolute_url, original_url, driver)
+
             if final_url is not None:
                 try:
                     final_status_code = requests.head(final_url, allow_redirects=False, timeout=TIMEOUT_SECONDS_REQUEST).status_code
-                    status_description = HTTPStatus(final_status_code).phrase
+
+                    try:
+                        status_description = HTTPStatus(final_status_code).phrase
+                    except ValueError:
+                        logging.warning(NON_STANDARD_HTTP_CODE_LOG, final_status_code)
+                        status_description = NON_STANDARD_HTTP_CODE_DESCR
+
                     if final_status_code not in exclusion_list or str(HTTPStatus.NOT_FOUND) in final_url:
                         #print(f"Link: {absolute_url} | Text: {link_text} | Final URL: {final_url} | Status Code: {final_status_code} ({status_description})")
                         logging.error("Page URL: %s", original_url)
@@ -186,8 +194,6 @@ def main():
             check_links(website_url, driver)
     else:
         logging.error("Exiting due to missing or invalid config.")
-
-    driver.quit()
 
 if __name__ == "__main__":
     main()

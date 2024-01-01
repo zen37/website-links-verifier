@@ -15,3 +15,7 @@ DEFAULT_LOG_LEVEL = 'ERROR'
 
 # parameter to limit recursion
 MAX_DEPTH = 2
+
+# non-standard HTTP status code
+NON_STANDARD_HTTP_CODE_LOG      = "Non-standard HTTP status code encountered: %d"
+NON_STANDARD_HTTP_CODE_DESCR    = "Unknown status"
