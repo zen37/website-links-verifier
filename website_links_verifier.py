@@ -14,7 +14,7 @@ from bs4 import BeautifulSoup
 from urllib3.exceptions import MaxRetryError, NameResolutionError
 
 from constants import (
-    DEFAULT_LOG_LEVEL, ENCODING, MAX_ERROR_MSG,
+    DEFAULT_LOG_LEVEL, ENCODING, MAX_ERROR_MSG, MAX_DEPTH,
     TIMEOUT_SECONDS_PAGE_LOAD, TIMEOUT_SECONDS_REQUEST
 )
 
@@ -22,6 +22,16 @@ from constants import (
 CONFIG = {}
 
 def get_final_url(url, url_original, driver):
+    """Retrieve the final URL for a given link.
+
+    Args:
+        url (str): The link URL to retrieve.
+        url_original (str): The original URL of the page containing the link.
+        driver: The Selenium WebDriver instance.
+
+    Returns:
+        str: The final URL of the given link or None if an error occurs.
+    """
     try:
         driver.get(url)
         return driver.current_url
@@ -31,10 +41,22 @@ def get_final_url(url, url_original, driver):
         return None
 
 
-def check_links(base_url, driver, original_url=None):
+def check_links(base_url, driver, original_url=None, depth=0, max_depth=MAX_DEPTH):
+    """Recursively check links on a page and their final URLs.
+
+    Args:
+        base_url (str): The base URL of the page to check.
+        driver: The Selenium WebDriver instance.
+        original_url (str, optional): The original URL of the page (default is None).
+        depth (int, optional): The current recursion depth (default is 0).
+        max_depth (int, optional): The maximum recursion depth (default is MAX_DEPTH).
+    """
     try:
         if original_url is None:
             original_url = base_url
+
+        if depth > max_depth:
+            return  # Limit recursion depth
 
         driver.get(base_url)
         WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.TAG_NAME, 'body')))
@@ -59,9 +81,9 @@ def check_links(base_url, driver, original_url=None):
                         "Link: %s | Text: %s | Final URL: %s | Status Code: %s (%s)",
                         absolute_url, link_text, final_url, final_status_code, status_description
                     )
-
-                    # Recursively check links on the page that the current link navigates to
-                    check_links(final_url, driver, original_url)
+                    if depth + 1 <= max_depth:
+                        # Recursively check links on the page that the current link navigates to
+                        check_links(final_url, driver, original_url, depth + 1, MAX_DEPTH)
             else:
                 pass
                 #print(f"Error retrieving final URL for {absolute_url}")
@@ -76,19 +98,28 @@ def check_links(base_url, driver, original_url=None):
 
 
 def set_options():
+    """Set Chrome options for running in headless mode.
+
+    Returns:
+        ChromeOptions: Configured options for running Chrome in headless mode.
+    """
     options = webdriver.ChromeOptions()
     options.add_argument("--headless")  # Run Chrome in headless mode (no GUI)
     return options
 
 
 def get_logfile_name():
-    """configures logging"""
+    """Generate a unique logfile name based on configuration settings.
+
+    Returns:
+        str: The complete path of the generated logfile.
+    """
     website_url = CONFIG.get('site')
     logging_level = CONFIG.get('logging_level') or DEFAULT_LOG_LEVEL
     dir_logs = CONFIG.get('dir_logs')
     date_format = CONFIG.get('date_format_filename')
 
-    logfile_name = f"{website_url.replace('https://', '').replace('http://', '').replace('/', '_')}_{logging_level.lower()}_log_{time.strftime(date_format)}.log"
+    logfile_name = f"{website_url.replace('https://', '').replace('http://', '').replace('/', '_')}_{logging_level.lower()}_{time.strftime(date_format)}.log"
 
     # Combine DIR_LOGS with the logfile name
     logfile_path = os.path.join(dir_logs, logfile_name)
@@ -100,7 +131,7 @@ def get_logfile_name():
 
 
 def configure_logging():
-    """configures logging"""
+    """Configure logging based on the global CONFIG dictionary."""
     logging_level = CONFIG.get('logging_level') or DEFAULT_LOG_LEVEL
     stream = CONFIG.get('log_to_console')
 
@@ -119,6 +150,7 @@ def configure_logging():
     )
 
 def load_config():
+    """Load configuration settings from the 'config.json' file."""
     try:
         with open('config.json', 'r', encoding=ENCODING) as config_file:
             global CONFIG
@@ -130,12 +162,13 @@ def load_config():
 
 
 def init():
+    """Initialize the script by loading configuration and configuring logging."""
     load_config()
     configure_logging()
 
 
 def main():
-
+    """Main entry point of the script."""
     init()
 
     website_url =  CONFIG.get('site')
