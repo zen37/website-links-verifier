@@ -14,10 +14,12 @@ from bs4 import BeautifulSoup
 from urllib3.exceptions import MaxRetryError, NameResolutionError
 
 from constants import (
-    ENCODING, MAX_ERROR_MSG,
+    DEFAULT_LOG_LEVEL, ENCODING, MAX_ERROR_MSG,
     TIMEOUT_SECONDS_PAGE_LOAD, TIMEOUT_SECONDS_REQUEST
 )
 
+# define global configuration dictionary
+CONFIG = {}
 
 def get_final_url(url, url_original, driver):
     try:
@@ -52,9 +54,9 @@ def check_links(base_url, driver, original_url=None):
                 #if final_status_code == HTTPStatus.OK:
                 if final_status_code != HTTPStatus.OK or str(HTTPStatus.NOT_FOUND) in final_url:
                     #print(f"Link: {absolute_url} | Text: {link_text} | Final URL: {final_url} | Status Code: {final_status_code} ({status_description})")
-                    logging.error("logging.info Page URL: %s", original_url)
+                    logging.error("Page URL: %s", original_url)
                     logging.error(
-                        "logging.info Link: %s | Text: %s | Final URL: %s | Status Code: %s (%s)",
+                        "Link: %s | Text: %s | Final URL: %s | Status Code: %s (%s)",
                         absolute_url, link_text, final_url, final_status_code, status_description
                     )
 
@@ -73,19 +75,6 @@ def check_links(base_url, driver, original_url=None):
         logging.error("An unexpected error occurred: %s", str(e)[:MAX_ERROR_MSG])
 
 
-def read_config(key):
-    try:
-        with open('config.json', 'r', encoding=ENCODING) as config_file:
-            config_data = json.load(config_file)
-            return config_data.get(key)
-    except FileNotFoundError:
-        logging.error("Config file not found.")
-        return None
-    except json.JSONDecodeError:
-        logging.error("Error decoding JSON in the config file.")
-        return None
-
-
 def set_options():
     options = webdriver.ChromeOptions()
     options.add_argument("--headless")  # Run Chrome in headless mode (no GUI)
@@ -94,10 +83,10 @@ def set_options():
 
 def get_logfile_name():
     """configures logging"""
-    website_url = read_config('site')
-    logging_level = read_config('logging_level')
-    dir_logs = read_config('dir_logs')
-    date_format = read_config('date_format_filename')
+    website_url = CONFIG.get('site')
+    logging_level = CONFIG.get('logging_level') or DEFAULT_LOG_LEVEL
+    dir_logs = CONFIG.get('dir_logs')
+    date_format = CONFIG.get('date_format_filename')
 
     logfile_name = f"{website_url.replace('https://', '').replace('http://', '').replace('/', '_')}_{logging_level.lower()}_log_{time.strftime(date_format)}.log"
 
@@ -109,10 +98,11 @@ def get_logfile_name():
 
     return logfile_path
 
+
 def configure_logging():
     """configures logging"""
-    logging_level = read_config('logging_level')
-    stream = read_config('log_to_console')
+    logging_level = CONFIG.get('logging_level') or DEFAULT_LOG_LEVEL
+    stream = CONFIG.get('log_to_console')
 
     handlers = [
         logging.StreamHandler() if stream else None,  # Conditionally add StreamHandler
@@ -123,17 +113,32 @@ def configure_logging():
 
     logging.basicConfig(
         level=logging_level,
-        format="%(asctime)s [%(levelname)s] %(message)s",
-        datefmt="%Y-%m-%d %H:%M:%S",
+        format=CONFIG.get("log_format"),
+        datefmt=CONFIG.get("date_format_log"),
         handlers=handlers
     )
 
+def load_config():
+    try:
+        with open('config.json', 'r', encoding=ENCODING) as config_file:
+            global CONFIG
+            CONFIG = json.load(config_file)
+    except FileNotFoundError:
+        logging.error("Config file not found. Using default values.")
+    except json.JSONDecodeError:
+        logging.error("Error decoding JSON in the config file")
 
-def main():
+
+def init():
+    load_config()
     configure_logging()
 
-    website_url = read_config('site')
 
+def main():
+
+    init()
+
+    website_url =  CONFIG.get('site')
     if website_url:
         logging.info("%s ... checking links ...", website_url)
 
