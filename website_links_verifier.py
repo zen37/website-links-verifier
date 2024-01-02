@@ -10,12 +10,13 @@ from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
+from selenium.common.exceptions import TimeoutException
 from bs4 import BeautifulSoup
 from urllib3.exceptions import MaxRetryError, NameResolutionError
 
 from constants import (
     DEFAULT_LOG_LEVEL, ENCODING, MAX_ERROR_MSG, MAX_DEPTH,
-    TIMEOUT_SECONDS_PAGE_LOAD, TIMEOUT_SECONDS_REQUEST,
+    TIMEOUT_SECONDS_PAGE_LOAD, TIMEOUT_SECONDS_REQUEST, TIMEOUT_SECONDS_IFRAME,
     NON_STANDARD_HTTP_CODE_LOG, NON_STANDARD_HTTP_CODE_DESCR
 )
 
@@ -56,23 +57,35 @@ def check_links(base_url, driver, original_url=None, depth=0, max_depth=MAX_DEPT
         if original_url is None:
             original_url = base_url
 
+        # Check if the base_url is different from the original_url
+        if base_url != original_url:
+            depth = 0  # Reset depth for each new page
+
         if depth > max_depth:
             return  # Limit recursion depth
 
         driver.get(base_url)
-        WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.TAG_NAME, 'body')))
+        #WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.TAG_NAME, 'body')))
 
+        # Switch back to the main content
+        driver.switch_to.default_content()
+
+        # Continue with the rest of your code, such as finding links in the main content
         soup = BeautifulSoup(driver.page_source, 'html.parser')
         links = soup.find_all('a', href=True)
+        logging.info("...DEPTH %s....%s links checking", depth, len(links))
 
-        exclusion_list = CONFIG.get("http_status_exclusion_list", [])
-
+        #exclusion_list = CONFIG.get("http_status_exclusion_list", [])
+        i = 0
         for link in links:
+            i += 1
             link_url = link['href']
             link_text = link.text.strip()
+
             absolute_url = urljoin(base_url, link_url)
-            logging.info("Link Text checking: %s", link_text)
             final_url = get_final_url(absolute_url, original_url, driver)
+
+            logging.info ("%s. %s %s", i, link_text, final_url)
 
             if final_url is not None:
                 try:
@@ -81,21 +94,30 @@ def check_links(base_url, driver, original_url=None, depth=0, max_depth=MAX_DEPT
                     try:
                         status_description = HTTPStatus(final_status_code).phrase
                     except ValueError:
-                        logging.warning(NON_STANDARD_HTTP_CODE_LOG, final_status_code)
+                        logging.debug(NON_STANDARD_HTTP_CODE_LOG, final_status_code)
                         status_description = NON_STANDARD_HTTP_CODE_DESCR
 
-                    if final_status_code not in exclusion_list or str(HTTPStatus.NOT_FOUND) in final_url:
-                        #print(f"Link: {absolute_url} | Text: {link_text} | Final URL: {final_url} | Status Code: {final_status_code} ({status_description})")
-                        logging.error("Page URL: %s", original_url)
-                        logging.error(
+                    if final_status_code == HTTPStatus.OK and str(HTTPStatus.NOT_FOUND) not in final_url:
+                    #if final_status_code not in exclusion_list or str(HTTPStatus.NOT_FOUND) in final_url:
+                        #logging.info("Page URL: %s", original_url)
+                        logging.info(
                             "Link: %s | Text: %s | Final URL: %s | Status Code: %s (%s)",
                             absolute_url, link_text, final_url, final_status_code, status_description
                         )
                         if depth + 1 <= max_depth:
                             # Recursively check links on the page that the current link navigates to
-                            check_links(final_url, driver, original_url, depth + 1, MAX_DEPTH)
+                            #check_links(final_url, driver, original_url, depth + 1, MAX_DEPTH)
+                            check_links(final_url, driver, final_url, depth + 1, MAX_DEPTH)
+                    else:
+                        logging.error("Page URL: %s", original_url)
+                        logging.error(
+                            "Link: %s | Text: %s | Final URL: %s | Status Code: %s (%s)",
+                            absolute_url, link_text, final_url, final_status_code, status_description
+                        )
                 except requests.exceptions.SSLError as ssl_error:
                     logging.error("SSL certificate verification error for %s: %s", final_url, ssl_error)
+                except requests.exceptions.ReadTimeout as rt_error:
+                    logging.error("Read timeout occurred for %s: %s", final_url, rt_error)
             else:
                 pass
                 #print(f"Error retrieving final URL for {absolute_url}")
@@ -131,7 +153,10 @@ def get_logfile_name():
     dir_logs = CONFIG.get('dir_logs')
     date_format = CONFIG.get('date_format_filename')
 
-    logfile_name = f"{website_url.replace('https://', '').replace('http://', '').replace('/', '_')}_{logging_level.lower()}_{time.strftime(date_format)}.log"
+    logfile_name = (
+        f"{website_url.replace('https://', '').replace('http://', '').replace('/', '_')}"
+        f"_{MAX_DEPTH}_{logging_level.lower()}_{time.strftime(date_format)}.log"
+    )
 
     # Combine DIR_LOGS with the logfile name
     logfile_path = os.path.join(dir_logs, logfile_name)
@@ -185,8 +210,7 @@ def main():
 
     website_url =  CONFIG.get('site')
     if website_url:
-        logging.info("%s ... checking links ...", website_url)
-
+        logging.info("%s ... checking links, max depth %s", website_url, MAX_DEPTH)
         options = set_options()
 
         with webdriver.Chrome(options=options) as driver:
