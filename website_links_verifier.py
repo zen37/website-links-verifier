@@ -65,7 +65,15 @@ def check_links(base_url, driver, original_url=None, depth=0, max_depth=MAX_DEPT
             return  # Limit recursion depth
 
         driver.get(base_url)
-        #WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.TAG_NAME, 'body')))
+        WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.TAG_NAME, 'body')))
+
+
+        try:
+            WebDriverWait(driver, TIMEOUT_SECONDS_IFRAME).until(EC.presence_of_element_located((By.TAG_NAME, 'iframe')))
+
+        except TimeoutException:
+            pass
+            #logging.error("No iframes found or timed out waiting for iframe presence")
 
         # Switch back to the main content
         driver.switch_to.default_content()

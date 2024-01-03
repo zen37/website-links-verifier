@@ -1,8 +1,9 @@
 {
-    "site": "",
+    "site": "...",
     "http_status_exclusion_list": [
         200,
-        403
+        403,
+        999
     ],
     "log_to_console": true,
     "dir_logs": "logs",

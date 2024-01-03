@@ -17,7 +17,7 @@ TIMEOUT_SECONDS_IFRAME = 30
 DEFAULT_LOG_LEVEL = 'INFO'
 
 # parameter to limit recursion
-MAX_DEPTH = 1
+MAX_DEPTH = 2
 
 # non-standard HTTP status code
 NON_STANDARD_HTTP_CODE_LOG      = "Non-standard HTTP status code encountered: %d"
